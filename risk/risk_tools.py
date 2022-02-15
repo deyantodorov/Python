@@ -1,8 +1,10 @@
 from tracemalloc import Statistic
+from unittest import result
 import pandas as pd
 import numpy as np
 import scipy
 from scipy.stats import norm
+from scipy.optimize import minimize
 
 
 def drawdown(return_series: pd.Series, amount: float = 1000):
@@ -206,7 +208,6 @@ def plot_ef2(n_points, er, cov, style='.-'):
     """
     Plots the 2-asset efficient frontier
     """
-
     if er.shape[0] != 2 or er.shape[0] != 2:
         raise ValueError('plot_ef2 can only plot 2-asset frontiers')
 
@@ -219,3 +220,57 @@ def plot_ef2(n_points, er, cov, style='.-'):
     })
 
     return ef.plot.line(x='Volatility', y='Returns', style=style)
+
+
+def optimal_weights(n_points, er, cov):
+    """
+    -> list of weights ro run the optimizer on to minimize the volatility
+    """
+    target_rs = np.linspace(er.min(), er.max(), n_points)
+    weights = [minimize_vol(target_return, er, cov)
+               for target_return in target_rs]
+
+    return weights
+
+
+def plot_ef(n_points, er, cov, style='.-'):
+    """
+    Plots the N-asset efficient frontier
+    """
+
+    weights = optimal_weights(n_points, er, cov)
+    rets = [portfolio_return(w, er) for w in weights]
+    vols = [portfolio_vol(w, cov) for w in weights]
+    ef = pd.DataFrame({
+        'Returns': rets,
+        'Volatility': vols
+    })
+
+    return ef.plot.line(x='Volatility', y='Returns', style=style)
+
+
+def minimize_vol(target_return, er, cov):
+    """
+    target_ret -> w
+    """
+    n = er.shape[0]
+    init_guess = np.repeat(1/n, n)
+    bounds = ((0.0, 1.0),) * n
+    return_is_target = {
+        'type': 'eq',
+        'args': (er,),
+        'fun': lambda weights, er: target_return - portfolio_return(weights, er)
+    }
+    weights_sum_to_1 = {
+        'type': 'eq',
+        'fun': lambda weights: np.sum(weights) - 1
+    }
+
+    results = minimize(
+        portfolio_vol,
+        init_guess, args=(cov,),
+        method='SLSQP',
+        options={'disp': False},
+        constraints=(return_is_target, weights_sum_to_1), bounds=bounds)
+
+    return results.x
