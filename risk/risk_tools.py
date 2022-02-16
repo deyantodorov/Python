@@ -233,7 +233,7 @@ def optimal_weights(n_points, er, cov):
     return weights
 
 
-def plot_ef(n_points, er, cov, style='.-'):
+def plot_ef(n_points, er, cov, show_cml=False, style='.-', riskfree_rate=0):
     """
     Plots the N-asset efficient frontier
     """
@@ -246,7 +246,21 @@ def plot_ef(n_points, er, cov, style='.-'):
         'Volatility': vols
     })
 
-    return ef.plot.line(x='Volatility', y='Returns', style=style)
+    ax = ef.plot.line(x='Volatility', y='Returns', style=style)
+
+    if show_cml:
+        ax.set_xlim(left=0)
+        weights_msr = max_sharp_ratio(riskfree_rate, er, cov)
+        returns_msr = portfolio_return(weights_msr, er)
+        volatility_msr = portfolio_vol(weights_msr, cov)
+
+        # Add Capital Market Line
+        cml_x = [0, volatility_msr]
+        cml_y = [riskfree_rate, returns_msr]
+        ax.plot(cml_x, cml_y, color='green', marker='o',
+                linestyle='dashed', markersize=12, linewidth=2)
+
+    return ax
 
 
 def minimize_vol(target_return, er, cov):
@@ -272,5 +286,40 @@ def minimize_vol(target_return, er, cov):
         method='SLSQP',
         options={'disp': False},
         constraints=(return_is_target, weights_sum_to_1), bounds=bounds)
+
+    return results.x
+
+
+def negative_sharp_ratio(weights, riskfree_rate, er, cov):
+    """
+        Returns the negative of the sharp ratio, given wights
+        """
+    r = portfolio_return(weights, er)
+    vol = portfolio_vol(weights, cov)
+
+    return -(r - riskfree_rate) / vol
+
+
+def max_sharp_ratio(riskfree_rate, er, cov):
+    """
+    Returns the weights of the portfolio that gives you the maximum sharp ratio
+    given the riskfree rate and expected returns and a covariance matrix
+    """
+    n = er.shape[0]
+    init_guess = np.repeat(1/n, n)
+    bounds = ((0.0, 1.0),) * n
+
+    weights_sum_to_1 = {
+        'type': 'eq',
+        'fun': lambda weights: np.sum(weights) - 1
+    }
+
+    results = minimize(
+        negative_sharp_ratio,
+        init_guess,
+        args=(riskfree_rate, er, cov,),
+        method='SLSQP',
+        options={'disp': False},
+        constraints=(weights_sum_to_1), bounds=bounds)
 
     return results.x
