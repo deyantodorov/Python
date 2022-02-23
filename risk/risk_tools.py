@@ -51,6 +51,28 @@ def get_ind_returns():
     return ind
 
 
+def get_ind_nfirms():
+    """
+    """
+    ind = pd.read_csv('data/ind30_m_nfirms.csv', header=0,
+                      index_col=0, parse_dates=True)
+    ind.index = pd.to_datetime(ind.index, format='%Y%m').to_period('M')
+    ind.columns = ind.columns.str.strip()
+
+    return ind
+
+
+def get_ind_size():
+    """
+    """
+    ind = pd.read_csv('data/ind30_m_size.csv', header=0,
+                      index_col=0, parse_dates=True)
+    ind.index = pd.to_datetime(ind.index, format='%Y%m').to_period('M')
+    ind.columns = ind.columns.str.strip()
+
+    return ind
+
+
 def semideviation(r):
     """
     Returns the semideviation aka negative semideviation of r
@@ -157,14 +179,14 @@ def annualized_volatility(r):
     return r.std() * np.sqrt(12)
 
 
-def annualized_rets(r, peridos_per_year):
+def annualized_rets(r, periods_per_year):
     """
     Annualizes a set of returns
     We should infer the periods per year
     """
     compunded_growth = (1 + r).prod()
     n_periods = r.shape[0]
-    return compunded_growth ** (peridos_per_year/n_periods) - 1
+    return compunded_growth ** (periods_per_year/n_periods) - 1
 
 
 def annualized_vol(r, periods_per_year):
