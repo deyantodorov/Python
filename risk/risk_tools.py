@@ -51,6 +51,19 @@ def get_ind_returns():
     return ind
 
 
+def get_total_market_index_returns():
+    """
+    """
+    ind_return = get_ind_returns()
+    ind_nfirms = get_ind_nfirms()
+    ind_size = get_ind_size()
+    ind_mktcap = ind_nfirms * ind_size
+    total_mktcap = ind_mktcap.sum(axis='columns')
+    ind_capweight = ind_mktcap.divide(total_mktcap, axis='rows')
+    total_market_return = (ind_capweight * ind_return).sum(axis='columns')
+    return total_market_return
+
+
 def get_ind_nfirms():
     """
     """
