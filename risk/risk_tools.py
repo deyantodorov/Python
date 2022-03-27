@@ -1,10 +1,13 @@
 from tracemalloc import Statistic
+from turtle import color
 from unittest import result
 import pandas as pd
 import numpy as np
 import scipy
 from scipy.stats import norm
 from scipy.optimize import minimize
+import ipywidgets as widgets
+from IPython.display import display
 
 
 def drawdown(return_series: pd.Series, amount: float = 1000):
@@ -478,3 +481,64 @@ def summary_stats(r: pd.DataFrame, riskfree_rate=0.03):
         'Sharp Ratio': ann_sr,
         'Max Drawdown': dd
     })
+
+
+def gbm(n_years=10, n_scenarios=1000, mu=0.07, sigma=0.15, steps_per_year=12, s_0=100.0, prices=True):
+    """
+    Evolution of Geometric Brownian Motion trajectories, such as for Stock Prices through Monte Carlo
+    :param n_years:  The number of years to generate data for
+    :param n_paths: The number of scenarios/trajectories
+    :param mu: Annualized Drift, e.g. Market Return
+    :param sigma: Annualized Volatility
+    :param steps_per_year: granularity of the simulation
+    :param s_0: initial value
+    :return: a numpy array of n_paths columns and n_years*steps_per_year rows
+    """
+    # Derive per-step Model Parameters from User Specifications
+    dt = 1/steps_per_year
+    n_steps = int(n_years*steps_per_year) + 1
+    # the standard way ...
+    # rets_plus_1 = np.random.normal(loc=mu*dt+1, scale=sigma*np.sqrt(dt), size=(n_steps, n_scenarios))
+    # without discretization error ...
+    rets_plus_1 = np.random.normal(
+        loc=(1+mu)**dt, scale=(sigma*np.sqrt(dt)), size=(n_steps, n_scenarios))
+    rets_plus_1[0] = 1
+    ret_val = s_0 * \
+        pd.DataFrame(rets_plus_1).cumprod() if prices else rets_plus_1-1
+    return ret_val
+
+
+def show_gbm(n_scenarios, mu, sigma):
+    """
+    Draw the results of a stock price evolution under a Geometric Brownian Motion model
+    """
+    s_0 = 100
+    prices = gbm(n_scenarios=n_scenarios, mu=mu, sigma=sigma, s_0=s_0)
+    ax = prices.plot(legend=False, color='indianred',
+                     alpha=0.5, linewidth=2, figsize=(12, 5))
+    ax.axhline(y=s_0, ls=':', color='black')
+    ax.set_ylim(top=400)
+
+    # draw a dot at the origin
+    ax.plot(0, s_0, marker='o', color='darkred', alpha=0.2)
+
+
+def show_cppi(n_scenarios=50, mu=0.07, sigma=0.15, m=3, floor=0., riskfree_rate=0.03, y_max=100):
+    """
+    Plots the results of a Monte Carlo Simulation of CPPI
+    """
+    start = 100
+    sim_rets = gbm(n_scenarios=n_scenarios, mu=mu, sigma=sigma,
+                   prices=False, steps_per_year=12)
+    risky_r = pd.DataFrame(sim_rets)
+
+    # run the back-test
+    btr = run_cppi(risky_return=pd.DataFrame(risky_r),
+                   riskfree_rate=riskfree_rate, multiplier=m, start=start, floor=floor)
+    wealth = btr['Wealth']
+    y_max = wealth.values.max() * y_max / 100
+    ax = wealth.plot(legend=False, alpha=0.3,
+                     color='indianred', figsize=(12, 6))
+    ax.axhline(y=start, ls=':', color='black')
+    ax.axhline(y=start * floor, ls='--', color='red')
+    ax.set_ylim(top=y_max)
