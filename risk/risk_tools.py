@@ -542,3 +542,28 @@ def show_cppi(n_scenarios=50, mu=0.07, sigma=0.15, m=3, floor=0., riskfree_rate=
     ax.axhline(y=start, ls=':', color='black')
     ax.axhline(y=start * floor, ls='--', color='red')
     ax.set_ylim(top=y_max)
+
+
+def discount(t, r):
+    """
+    Compute the price of a pure discount bond that pays a dollar at a time t, given interest rate r
+    """
+    return (1 + r) ** (-t)
+
+
+def pv(l, r):
+    """
+    Computes the present value of a sequence of liabilites
+    l is indexed by the time, and the values are amounths of each liability
+    returns present value of the sequence
+    """
+    dates = l.index
+    discounts = discount(dates, r)
+    return (discounts*l).sum()
+
+
+def funding_ratio(assets, liabilites, r):
+    """
+    Computes the funding ratio of some assets given liabilites and interest rate
+    """
+    return assets/pv(liabilites, r)
